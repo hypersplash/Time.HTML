@@ -37,6 +37,57 @@
             background: #555;
         }
 
+        #mode {
+            position: fixed;
+            top: 20px;
+            right: 140px;
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: monospace;
+            display: none;
+        }
+
+        #mode:hover {
+            background: #555;
+        }
+
+        #numbers {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: monospace;
+            display: none;
+        }
+
+        #numbers:hover {
+            background: #555;
+        }
+
+        #hideBtn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 16px;
+        }
+
+        #hideBtn:hover {
+            background: #555;
+        }
+
         #digital {
             font-size: 80px;
             letter-spacing: 5px;
@@ -52,6 +103,26 @@
             border: 4px solid #fff;
             border-radius: 50%;
             position: relative;
+        }
+
+        .marker {
+            position: absolute;
+            background: #fff;
+            left: 50%;
+            top: 0;
+            transform-origin: center 200px;
+        }
+
+        .hour-marker {
+            width: 4px;
+            height: 20px;
+            margin-left: -2px;
+        }
+
+        .minute-marker {
+            width: 2px;
+            height: 10px;
+            margin-left: -1px;
         }
 
         .hand {
@@ -90,16 +161,42 @@
             background: #fff;
             border-radius: 50%;
             transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .number {
+            position: absolute;
+            left: 50%;
+            top: 30px;
+            transform-origin: center 170px;
+            font-size: 24px;
+            font-weight: bold;
+            width: 30px;
+            height: 30px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            margin-left: -15px;
+            margin-top: -15px;
+        }
+
+        .number.show {
+            display: flex;
         }
     </style>
 </head>
 <body>
     <button id="toggle">ANALOG</button>
-
+    <button id="mode">GLIDE</button>
+    <button id="numbers">NUMBERS</button>
+    <button id="hideBtn">:3</button>
+    
     <div id="digital">00:00:00</div>
-
+    
     <div id="analog">
         <div class="clock-face">
+            <div id="markers"></div>
+            <div id="clockNumbers"></div>
             <div class="hand hour" id="hour"></div>
             <div class="hand minute" id="minute"></div>
             <div class="hand second" id="second"></div>
@@ -111,22 +208,93 @@
         const digital = document.getElementById('digital');
         const analog = document.getElementById('analog');
         const toggle = document.getElementById('toggle');
+        const modeBtn = document.getElementById('mode');
+        const numbersBtn = document.getElementById('numbers');
+        const hideBtn = document.getElementById('hideBtn');
         const hourHand = document.getElementById('hour');
         const minuteHand = document.getElementById('minute');
         const secondHand = document.getElementById('second');
-
+        const markers = document.getElementById('markers');
+        const clockNumbers = document.getElementById('clockNumbers');
+        
         let isDigital = true;
+        let isGliding = false;
+        let showNumbers = false;
+        let buttonsHidden = false;
+        let animationFrame;
+
+        for (let i = 0; i < 60; i++) {
+            const marker = document.createElement('div');
+            marker.className = i % 5 === 0 ? 'marker hour-marker' : 'marker minute-marker';
+            marker.style.transform = `rotate(${i * 6}deg)`;
+            markers.appendChild(marker);
+        }
+
+        for (let i = 1; i <= 12; i++) {
+            const num = document.createElement('div');
+            num.className = 'number';
+            num.textContent = i;
+            const angle = (i * 30 - 90);
+            num.style.transform = `rotate(${angle}deg)`;
+            const inner = document.createElement('div');
+            inner.textContent = i;
+            inner.style.transform = `rotate(${-angle}deg)`;
+            num.innerHTML = '';
+            num.appendChild(inner);
+            clockNumbers.appendChild(num);
+        }
 
         toggle.addEventListener('click', () => {
             isDigital = !isDigital;
             if (isDigital) {
                 digital.style.display = 'block';
                 analog.style.display = 'none';
+                modeBtn.style.display = 'none';
+                numbersBtn.style.display = 'none';
                 toggle.textContent = 'ANALOG';
             } else {
                 digital.style.display = 'none';
                 analog.style.display = 'block';
+                modeBtn.style.display = 'block';
+                numbersBtn.style.display = 'block';
                 toggle.textContent = 'DIGITAL';
+            }
+        });
+
+        modeBtn.addEventListener('click', () => {
+            isGliding = !isGliding;
+            modeBtn.textContent = isGliding ? 'TICK' : 'GLIDE';
+            if (isGliding) {
+                cancelAnimationFrame(animationFrame);
+                animate();
+            }
+        });
+
+        numbersBtn.addEventListener('click', () => {
+            showNumbers = !showNumbers;
+            const nums = document.querySelectorAll('.number');
+            nums.forEach(n => {
+                if (showNumbers) {
+                    n.classList.add('show');
+                } else {
+                    n.classList.remove('show');
+                }
+            });
+            numbersBtn.textContent = showNumbers ? 'HIDE' : 'NUMBERS';
+        });
+
+        hideBtn.addEventListener('click', () => {
+            buttonsHidden = !buttonsHidden;
+            if (buttonsHidden) {
+                toggle.style.display = 'none';
+                modeBtn.style.display = 'none';
+                numbersBtn.style.display = 'none';
+            } else {
+                toggle.style.display = 'block';
+                if (!isDigital) {
+                    modeBtn.style.display = 'block';
+                    numbersBtn.style.display = 'block';
+                }
             }
         });
 
@@ -135,19 +303,32 @@
             const h = now.getHours();
             const m = now.getMinutes();
             const s = now.getSeconds();
+            const ms = isGliding ? now.getMilliseconds() : 0;
 
             digital.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
-            const secondDeg = (s / 60) * 360;
-            const minuteDeg = ((m + s / 60) / 60) * 360;
-            const hourDeg = ((h % 12 + m / 60) / 12) * 360;
-
+            const secondDeg = (s + ms / 1000) * 6;
+            const minuteDeg = (m + (s + ms / 1000) / 60) * 6;
+            const hourDeg = ((h % 12) + (m + (s + ms / 1000) / 60) / 60) * 30;
+            
             secondHand.style.transform = `rotate(${secondDeg}deg)`;
             minuteHand.style.transform = `rotate(${minuteDeg}deg)`;
             hourHand.style.transform = `rotate(${hourDeg}deg)`;
         }
 
-        setInterval(updateClock, 1000);
+        function animate() {
+            updateClock();
+            if (isGliding) {
+                animationFrame = requestAnimationFrame(animate);
+            }
+        }
+
+        setInterval(() => {
+            if (!isGliding) {
+                updateClock();
+            }
+        }, 1000);
+        
         updateClock();
     </script>
 </body>
