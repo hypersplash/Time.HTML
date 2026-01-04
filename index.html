@@ -167,21 +167,26 @@
         .number {
             position: absolute;
             left: 50%;
-            top: 30px;
-            transform-origin: center 170px;
-            font-size: 24px;
-            font-weight: bold;
-            width: 30px;
-            height: 30px;
+            top: 50%;
+            width: 40px;
+            height: 40px;
             display: none;
             align-items: center;
             justify-content: center;
-            margin-left: -15px;
-            margin-top: -15px;
+            margin-left: -20px;
+            margin-top: -20px;
+            font-size: 24px;
+            font-weight: bold;
         }
 
         .number.show {
             display: flex;
+        }
+
+        .number-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -233,13 +238,14 @@
         for (let i = 1; i <= 12; i++) {
             const num = document.createElement('div');
             num.className = 'number';
-            num.textContent = i;
-            const angle = (i * 30 - 90);
-            num.style.transform = `rotate(${angle}deg)`;
+            const angle = (i * 30 - 90) * Math.PI / 180;
+            const radius = 160;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            num.style.transform = `translate(${x}px, ${y}px)`;
             const inner = document.createElement('div');
+            inner.className = 'number-inner';
             inner.textContent = i;
-            inner.style.transform = `rotate(${-angle}deg)`;
-            num.innerHTML = '';
             num.appendChild(inner);
             clockNumbers.appendChild(num);
         }
