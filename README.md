@@ -5,7 +5,7 @@
 
 ---
 
-## 🧐 What’s this even for?
+# 🧐 What’s this even for?
 
 Well, you could just look at your taskbar clock… but where’s the fun in that?  
 Here are a few things you can do with Time.HTML:
@@ -16,9 +16,9 @@ Here are a few things you can do with Time.HTML:
 
 ---
 
-## ⚙️ How to Use
+# ⚙️ How to Use
 
-# Locally
+## Locally
 1. Download or clone this repository:  
    ```bash
    git clone https://github.com/hypersplash/Time.HTML.git
@@ -28,11 +28,11 @@ Here are a few things you can do with Time.HTML:
 
 If you’d like, you can tweak index.html
 
-# Online
+## Online
 1. Just head to [hypersplash.github.io/Time.HTML](https://hypersplash.github.io/Time.HTML/)
 ---
 
-## 💡 Features
+# 💡 Features
 
 - Minimalist and responsive design  
 - 100% client-side (entirely serverless)
@@ -40,13 +40,13 @@ If you’d like, you can tweak index.html
 
 ---
 
-## 📜 License
+# 📜 License
 
 This project is licensed under the **MIT License** — see [`LICENSE`](LICENSE) for details.
 
 ---
 
-## 🌐 Author & Credits
+# 🌐 Author & Credits
 
 Created by **Marcus "HyperSplash" Vũ**. On a caffeinated, sleepless night that I was thinking about my life choices :3
 
