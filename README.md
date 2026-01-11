@@ -48,7 +48,7 @@ This project is licensed under the **MIT License** — see [`LICENSE`](LICENSE) 
 
 ## 🌐 Author & Credits
 
-Created by **Marcus "HyperSplash" Vũ**  
+Created by **Marcus "HyperSplash" Vũ**. On a caffeinated, sleepless night that I was thinking about my life choices :3
 
 ---
 
