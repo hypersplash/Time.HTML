@@ -52,4 +52,4 @@ Created by **Marcus "HyperSplash" Vũ**. On a caffeinated, sleepless night that 
 
 ---
 
-> *“Time’s ticking — might as well make it look good.”*
+> *“Don't just tell the time, feel its movement, observe its lines and curves.”*
