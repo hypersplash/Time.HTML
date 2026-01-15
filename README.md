@@ -21,7 +21,7 @@ Here are a few things you can do with Time.HTML:
 ## Locally
 1. Download or clone this repository:  
    ```bash
-   git clone https://github.com/hypersplash/Time.HTML.git
+   git clone https://github.com/hypersplash/Chrono.io
    ```
 2. Open `index.html` in your browser.  
 3. Enjoy 
@@ -29,7 +29,7 @@ Here are a few things you can do with Time.HTML:
 If you’d like, you can tweak index.html
 
 ## Online
-1. Just head to [hypersplash.github.io/Time.HTML](https://hypersplash.github.io/Time.HTML/)
+1. Just head to [hypersplash.github.io/Chrono.io](https://hypersplash.github.io/Chrono.io/)
 ---
 
 # Features
@@ -48,8 +48,8 @@ This project is licensed under the **MIT License** — see [`LICENSE`](LICENSE) 
 
 # Author & Credits
 
-Created by **Marcus "HyperSplash" Vũ**. On a caffeinated, sleepless night that I was thinking about my life choices :3
+Created by **Marcus "HyperSplash" Vũ**. On a caffeinated, sleepless night when I was thinking about my life choices :3
 
 ---
 
-> *“Don't just tell the time, feel its movement, observe its lines and curves.”*
+> *“Don't just tell the time, feel its movement. Intimately.”*
