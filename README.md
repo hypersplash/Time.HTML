@@ -8,7 +8,7 @@
 # What’s this even for?
 
 Well, you could just look at your taskbar clock or look at your phone… but where’s the fun in that?  
-Here are a few things you can do with Chrono.io:
+Here are a few things you can do with chrono.io:
 
 - 🖥️ **Display Time on Another Screen** - Perfect for dashboards, Raspberry Pi displays, or smart mirrors.  
 - ⏰ **Analog Clock Setup** - Use it to check and align your analog clocks precisely.  
