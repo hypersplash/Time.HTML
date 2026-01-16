@@ -1,4 +1,4 @@
-# Chrono.io
+# chrono.io
 **Time, time, and just time.**
 
 ....What more could you possibly ask for? It's a clock, in HTML
@@ -21,7 +21,7 @@ Here are a few things you can do with Chrono.io:
 ## Locally
 1. Download or clone this repository:  
    ```bash
-   git clone https://github.com/hypersplash/Chrono.io
+   git clone https://github.com/hypersplash/chrono.io
    ```
 2. Open `index.html` in your browser.  
 3. Enjoy 
@@ -29,7 +29,7 @@ Here are a few things you can do with Chrono.io:
 If you’d like, you can tweak index.html
 
 ## Online
-1. Just head to [hypersplash.github.io/Chrono.io](https://hypersplash.github.io/Chrono.io/)
+1. Just head to [hypersplash.github.io/chrono.io](https://hypersplash.github.io/chrono.io/)
 ---
 
 # Features
