@@ -343,9 +343,10 @@
                 STATE.tickInterval = null;
                 animate();
             } else {
-                // If switching to tick, stop the animation and restart the one-second interval.
+                // If switching to tick, stop the animation, immediately snap to the current time, and restart the interval.
                 cancelAnimationFrame(STATE.animationFrame);
                 STATE.animationFrame = null;
+                updateClock(); // Immediately snap to the discrete time
                 if (!STATE.tickInterval) {
                     STATE.tickInterval = setInterval(updateClock, 1000);
                 }
