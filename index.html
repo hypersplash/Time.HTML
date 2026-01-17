@@ -113,19 +113,16 @@
         .hour {
             width: 6px;
             height: 120px;
-            margin-left: -3px;
         }
 
         .minute {
             width: 4px;
             height: 160px;
-            margin-left: -2px;
         }
 
         .second {
             width: 2px;
             height: 180px;
-            margin-left: -1px;
             background: #f00;
         }
 
@@ -381,9 +378,9 @@
                 hour: hoursWithMinutes * 30      // 360° / 12 hours
             };
 
-            elements.hands.second.style.transform = `rotate(${angles.second}deg)`;
-            elements.hands.minute.style.transform = `rotate(${angles.minute}deg)`;
-            elements.hands.hour.style.transform = `rotate(${angles.hour}deg)`;
+            elements.hands.second.style.transform = `translateX(-50%) rotate(${angles.second}deg)`;
+            elements.hands.minute.style.transform = `translateX(-50%) rotate(${angles.minute}deg)`;
+            elements.hands.hour.style.transform = `translateX(-50%) rotate(${angles.hour}deg)`;
         }
 
         // Recursive animation loop for glide mode
