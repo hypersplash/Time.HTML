@@ -256,15 +256,23 @@
          * In "glide" mode, it uses milliseconds for smooth, continuous movement.
          */
         function updateAnalogClock({ hours, minutes, seconds, milliseconds }) {
-            // Calculate fractional values for smooth hand movement.
-            // - Total seconds: current seconds + (milliseconds / 1000)
-            // - Total minutes: current minutes + (total seconds / 60)
-            // - Total hours:   (current hour % 12) + (total minutes / 60)
+            // Precision Timing Logic:
+            // The hand positions are calculated using fractional values for a smooth "gliding" motion.
+            // 1. Total Seconds: The current second (0-59) is combined with the milliseconds
+            //    (e.g., at 30.5 seconds, secondsWithMs is 30.5).
+            // 2. Total Minutes: The current minute (0-59) gets a fractional part based on the total seconds
+            //    (e.g., at 30 seconds past the minute, the minute hand is halfway to the next minute).
+            // 3. Total Hours: The current hour (0-11) gets a fractional part based on the total minutes.
+            // This ensures all hands move continuously and in perfect sync. A digital display, by contrast,
+            // only shows the integer for the current second, which can create a perceptual difference.
             const secondsWithMs = seconds + milliseconds / 1000;
             const minutesWithSeconds = minutes + secondsWithMs / 60;
             const hoursWithMinutes = (hours % 12) + minutesWithSeconds / 60;
 
-            // Rotation degrees for each hand (e.g., 360° / 60s = 6° per second).
+            // Each hand's angle is calculated from its total fractional time.
+            // - Second hand: 360 degrees / 60 seconds = 6 degrees per second.
+            // - Minute hand: 360 degrees / 60 minutes = 6 degrees per minute.
+            // - Hour hand:   360 degrees / 12 hours   = 30 degrees per hour.
             const angles = {
                 second: secondsWithMs * 6,
                 minute: minutesWithSeconds * 6,
