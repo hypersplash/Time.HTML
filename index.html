@@ -197,7 +197,7 @@
             endpoint: 'https://time.now/developer/api/ip', // A public time API
             maxAttempts: 5,                                 // Max number of retries for the initial sync.
             initialDelayMs: 1000,                           // Initial delay for the exponential backoff retry strategy.
-            periodicSyncMs: 5 * 60 * 1000                   // How often to resync time in the background (5 minutes).
+            periodicSyncMs: 5 * 60 * 1000                   // How often to resync time: 5 (minutes) * 60 (seconds) * 1000 (milliseconds).
         };
 
         // --------------------
