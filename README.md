@@ -34,9 +34,9 @@ If you’d like, you can tweak index.html
 
 # Features
 
-- Minimalist and responsive design  
-- 100% client-side (entirely serverless)
-- Works on any modern browser  
+- Minimalist and responsive design
+- 99% client-side (with the option to use only system time)
+- Works on any modern browser (not guaranteed to work on Opera Mini :D)
 
 ---
 
