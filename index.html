@@ -52,7 +52,7 @@
 
         #hideBtn { position: fixed; bottom: 20px; left: 20px; padding: 8px 12px; font-size: 16px; }
 
-        .ui-hidden .ui-controls, .ui-hidden #hideBtn { display: none; }
+        .ui-hidden .ui-controls { display: none; }
 
         .state-digital #mode, .state-digital #numbers { display: none; }
         .state-analog #format { display: none; }
@@ -146,6 +146,11 @@
     </div>
 
     <script>
+        // -----------------
+        // --- DOM Cache ---
+        // -----------------
+        // To improve performance, we cache all DOM elements we will interact with.
+        // This avoids costly document lookups in functions that are called frequently (e.g., updateClock).
         const DOM = {
             body: document.body,
             digital: document.getElementById('digital'),
@@ -166,34 +171,57 @@
             uiControls: document.querySelector('.ui-controls')
         };
 
+        // ---------------------
+        // --- State Manager ---
+        // ---------------------
+        // This object holds the entire state of the application.
+        // All rendering and logic is driven by this state.
         const STATE = {
-            isDigital: true,
-            isGliding: false,
-            showNumbers: false,
-            is24Hour: true,
-            uiHidden: false,
-            // DEFAULT TO NETWORK TIME
-            useNetworkTime: true,
-            networkTimeOffset: 0, // ms
-            tickInterval: null,
-            animationFrame: null,
-            periodicSyncId: null
+            isDigital: true,        // Are we showing the digital or analog clock?
+            isGliding: false,       // Does the analog clock's second hand glide or tick?
+            showNumbers: false,     // On the analog clock, show numbers or just markers?
+            is24Hour: true,         // For the digital clock, use 24-hour or 12-hour format?
+            uiHidden: false,        // Is the UI (buttons) hidden?
+            useNetworkTime: true,   // Should we use network time or local system time? (Defaults to trying network time)
+            networkTimeOffset: 0,   // The calculated difference in milliseconds between system time and network time.
+            tickInterval: null,     // Holds the ID for the setInterval() used for the ticking clock.
+            animationFrame: null,   // Holds the ID for the requestAnimationFrame() used for the gliding clock.
+            periodicSyncId: null    // Holds the ID for the setInterval() used for periodic time resync.
         };
 
-        // config for retries & periodic sync
+        // -----------------
+        // --- Constants ---
+        // -----------------
+        // Configuration constants for the network time synchronization feature.
         const SYNC_CONFIG = {
-            endpoint: 'https://time.now/developer/api/ip',
-            maxAttempts: 5,
-            initialDelayMs: 1000,   // backoff start
-            periodicSyncMs: 5 * 60 * 1000 // 5 minutes
+            endpoint: 'https://time.now/developer/api/ip', // A public time API
+            maxAttempts: 5,                                 // Max number of retries for the initial sync.
+            initialDelayMs: 1000,                           // Initial delay for the exponential backoff retry strategy.
+            periodicSyncMs: 5 * 60 * 1000                   // How often to resync time in the background (5 minutes).
         };
 
-        // helper sleep
-        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        // --------------------
+        // --- Core Helpers ---
+        // --------------------
 
         /**
-         * Fetch network time with latency compensation and retries (exponential backoff).
-         * Returns true if sync succeeded, false otherwise.
+         * A simple promise-based sleep function.
+         * @param {number} ms - The number of milliseconds to wait.
+         * @returns {Promise<void>}
+         */
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+        // --------------------------
+        // --- Time Synchronization ---
+        // --------------------------
+
+        /**
+         * Fetches time from the network API with a retry mechanism.
+         * This function implements an exponential backoff strategy to avoid overwhelming the server on failure.
+         * It also calculates the Round-Trip Time (RTT) to compensate for network latency, giving a more accurate time.
+         * @param {number} maxAttempts - The maximum number of times to try fetching the time.
+         * @param {number} initialDelay - The starting delay for retries, which doubles on each failure.
+         * @returns {Promise<boolean>} - True if the sync was successful, false otherwise.
          */
         async function fetchNetworkTimeWithRetries(maxAttempts = SYNC_CONFIG.maxAttempts, initialDelay = SYNC_CONFIG.initialDelayMs) {
             let attempt = 0;
@@ -203,14 +231,13 @@
                 attempt++;
                 try {
                     DOM.timeSource.textContent = attempt === 1 ? 'SYNCING...' : `SYNCING (${attempt})...`;
-                    // measure local send time
-                    const t0 = Date.now();
-                    const resp = await fetch(SYNC_CONFIG.endpoint, { cache: 'no-store' });
-                    const t1 = Date.now(); // receive time
+                    const t0 = Date.now(); // Timestamp before sending the request
+                    const resp = await fetch(SYNC_CONFIG.endpoint, { cache: 'no-store' }); // 'no-store' is crucial for getting fresh data
+                    const t1 = Date.now(); // Timestamp after receiving the response
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const data = await resp.json();
 
-                    // parse server time
+                    // The API might return time in various formats, so we try to parse them gracefully.
                     let serverMs;
                     if (data.utc_datetime) {
                         serverMs = Date.parse(data.utc_datetime);
@@ -220,39 +247,51 @@
                         serverMs = Date.parse(data.datetime || data.utc_datetime);
                     }
 
-                    if (Number.isNaN(serverMs)) throw new Error('Invalid network time');
+                    if (Number.isNaN(serverMs)) throw new Error('Invalid network time format from API');
 
-                    // RTT compensation: assume server timestamp was taken around response generation,
-                    // so add half the measured RTT to approximate "now".
+                    // To compensate for latency, we assume the server's timestamp is from when the response
+                    // was generated. We add half the round-trip time (RTT) to this value to get a
+                    // more accurate estimate of the current time.
                     const rtt = t1 - t0;
                     const estimatedNetworkNowMs = serverMs + Math.round(rtt / 2);
 
-                    const systemMs = t1;
+                    const systemMs = t1; // The system time when the response was fully received.
                     STATE.networkTimeOffset = estimatedNetworkNowMs - systemMs;
 
-                    console.log(`Sync success (attempt ${attempt}). RTT=${rtt}ms offset=${STATE.networkTimeOffset}ms`);
+                    console.log(`Sync success (attempt ${attempt}). RTT=${rtt}ms, Offset=${STATE.networkTimeOffset}ms`);
                     return true;
                 } catch (err) {
                     console.warn(`Sync attempt ${attempt} failed:`, err);
                     if (attempt >= maxAttempts) break;
                     await sleep(delay);
-                    delay *= 2; // exponential backoff
+                    delay *= 2; // Exponential backoff
                 }
             }
+            console.error('All network sync attempts failed.');
             return false;
         }
 
+        /**
+         * Schedules a periodic resync of the network time.
+         * This ensures the clock remains accurate over long periods.
+         */
         function schedulePeriodicSync() {
-            clearPeriodicSync();
+            clearPeriodicSync(); // Ensure no multiple intervals are running.
             STATE.periodicSyncId = setInterval(async () => {
-                // attempt a single quick sync; if it fails we keep using previous offset
-                console.log('Periodic sync triggered');
-                const ok = await fetchNetworkTimeWithRetries(2, 500); // small retry budget
-                if (!ok) console.warn('Periodic sync failed (kept previous offset).');
-                else console.log('Periodic sync succeeded (offset updated).');
+                console.log('Periodic sync triggered.');
+                // We use a smaller retry budget for periodic syncs to be less intrusive.
+                const ok = await fetchNetworkTimeWithRetries(2, 500);
+                if (ok) {
+                    console.log('Periodic sync succeeded (offset updated).');
+                } else {
+                    console.warn('Periodic sync failed (kept previous offset).');
+                }
             }, SYNC_CONFIG.periodicSyncMs);
         }
 
+        /**
+         * Clears any scheduled periodic sync.
+         */
         function clearPeriodicSync() {
             if (STATE.periodicSyncId) {
                 clearInterval(STATE.periodicSyncId);
@@ -260,71 +299,104 @@
             }
         }
 
+        /**
+         * A wrapper function to handle the full network time sync process.
+         * It attempts the sync and, on success, schedules the periodic resync.
+         * On failure, it ensures the clock falls back to system time.
+         * @returns {Promise<boolean>} - The result from fetchNetworkTimeWithRetries.
+         */
         async function fetchNetworkTime() {
-            // wrapper that uses configured retry policy and manages periodic resync on success/failure
             const success = await fetchNetworkTimeWithRetries();
             if (success) {
                 STATE.useNetworkTime = true;
                 updateClock();
                 schedulePeriodicSync();
-                renderUI();
-                return true;
             } else {
-                // fall back to system time
                 STATE.useNetworkTime = false;
                 clearPeriodicSync();
-                renderUI();
-                return false;
             }
+            renderUI();
+            saveState(); // Persist the outcome of the sync attempt.
+            return success;
         }
 
+
+        // -------------------
+        // --- Clock Logic ---
+        // -------------------
+
+        /**
+         * Gets the current time, applying the network offset if available.
+         * @returns {Date} The current, potentially network-adjusted, time.
+         */
         function getCurrentTime() {
             const systemTime = new Date();
-            if (STATE.useNetworkTime) {
+            if (STATE.useNetworkTime && STATE.networkTimeOffset !== 0) {
                 return new Date(systemTime.getTime() + STATE.networkTimeOffset);
             }
             return systemTime;
         }
 
+        /**
+         * The main clock update function. It gets the current time and calls the
+         * specific update functions for both digital and analog displays.
+         */
         function updateClock() {
             const now = getCurrentTime();
             const time = {
                 hours: now.getHours(),
                 minutes: now.getMinutes(),
                 seconds: now.getSeconds(),
-                milliseconds: STATE.isGliding ? now.getMilliseconds() : 0
+                milliseconds: STATE.isGliding ? now.getMilliseconds() : 0 // Only need ms for glide mode
             };
             updateDigitalClock(time);
             updateAnalogClock(time);
         }
 
+        /**
+         * Updates the text content of the digital clock display.
+         * @param {{hours: number, minutes: number, seconds: number}} time - The time to display.
+         */
         function updateDigitalClock({ hours, minutes, seconds }) {
             const pad = n => n.toString().padStart(2, '0');
             let displayHours = hours;
             let suffix = '';
+
             if (!STATE.is24Hour) {
                 suffix = hours >= 12 ? ' PM' : ' AM';
-                displayHours = hours % 12 || 12;
+                displayHours = hours % 12 || 12; // 0 or 12 should be 12
             }
+
             DOM.digital.textContent = `${pad(displayHours)}:${pad(minutes)}:${pad(seconds)}${suffix}`;
         }
 
+        /**
+         * Updates the rotation of the analog clock hands.
+         * Calculations include fractional values for smooth "gliding" movement.
+         * @param {{hours: number, minutes: number, seconds: number, milliseconds: number}} time - The time to display.
+         */
         function updateAnalogClock({ hours, minutes, seconds, milliseconds }) {
+            // By including milliseconds/seconds in the larger units, the hands move smoothly.
             const secondsWithMs = seconds + milliseconds / 1000;
             const minutesWithSeconds = minutes + secondsWithMs / 60;
             const hoursWithMinutes = (hours % 12) + minutesWithSeconds / 60;
 
             const angles = {
-                second: secondsWithMs * 6,
-                minute: minutesWithSeconds * 6,
-                hour: hoursWithMinutes * 30
+                second: secondsWithMs * 6,      // 360 / 60 = 6
+                minute: minutesWithSeconds * 6, // 360 / 60 = 6
+                hour: hoursWithMinutes * 30     // 360 / 12 = 30
             };
 
+            // Using CSS custom properties for rotation is a clean way to update the styles.
             DOM.hands.second.style.setProperty('--rotation-angle', `${angles.second}deg`);
             DOM.hands.minute.style.setProperty('--rotation-angle', `${angles.minute}deg`);
             DOM.hands.hour.style.setProperty('--rotation-angle', `${angles.hour}deg`);
         }
 
+        /**
+         * The animation loop for the "gliding" clock mode.
+         * It calls itself recursively using requestAnimationFrame for smooth, efficient animation.
+         */
         function animate() {
             updateClock();
             if (STATE.isGliding) {
@@ -332,64 +404,152 @@
             }
         }
 
+
+        // --------------------------
+        // --- UI & State Toggles ---
+        // --------------------------
+
+        /**
+         * Renders the entire UI based on the current STATE object.
+         * This function is the single source of truth for how the UI looks.
+         * It toggles CSS classes and updates button text.
+         */
         function renderUI() {
             DOM.body.classList.toggle('state-digital', STATE.isDigital);
             DOM.body.classList.toggle('state-analog', !STATE.isDigital);
             DOM.body.classList.toggle('ui-hidden', STATE.uiHidden);
-
             DOM.clockNumbers.classList.toggle('show-numbers', STATE.showNumbers);
 
+            // Update button text based on state
+            DOM.hide.textContent = STATE.uiHidden ? '*' : 'HIDE';
             DOM.toggle.textContent = STATE.isDigital ? 'ANALOG' : 'DIGITAL';
             DOM.format.textContent = STATE.is24Hour ? '12H' : '24H';
             DOM.mode.textContent = STATE.isGliding ? 'TICK' : 'GLIDE';
             DOM.numbers.textContent = STATE.showNumbers ? 'MARKERS' : 'NUMBERS';
-            // show NETWORK when using network time, SYSTEM when using local system time
             DOM.timeSource.textContent = STATE.useNetworkTime ? 'NETWORK' : 'SYSTEM';
         }
 
-        function toggleClockMode() { STATE.isDigital = !STATE.isDigital; renderUI(); }
+        /**
+         * Saves the current application state to localStorage.
+         * Volatile properties like interval IDs are excluded as they are not meaningful across sessions.
+         * This function is called after every state change to ensure persistence.
+         * Note: For extremely frequent updates, one might debounce this function,
+         * but for user-driven clicks, direct saving is simple and reliable.
+         */
+        function saveState() {
+            const stateToSave = { ...STATE };
+            // We don't want to save interval/animation IDs.
+            delete stateToSave.tickInterval;
+            delete stateToSave.animationFrame;
+            delete stateToSave.periodicSyncId;
+            localStorage.setItem('chronoState', JSON.stringify(stateToSave));
+        }
 
-        function toggleTimeFormat() { STATE.is24Hour = !STATE.is24Hour; updateClock(); renderUI(); }
+        /**
+         * Loads application state from localStorage.
+         * If state is found, it's parsed and merged into the current STATE object.
+         * This is called once on initialization.
+         */
+        function loadState() {
+            const savedState = localStorage.getItem('chronoState');
+            if (savedState) {
+                try {
+                    const parsedState = JSON.parse(savedState);
+                    // Merge the loaded state, but ensure volatile properties are reset.
+                    Object.assign(STATE, {
+                        ...parsedState,
+                        tickInterval: null,
+                        animationFrame: null,
+                        periodicSyncId: null,
+                    });
+                } catch (e) {
+                    console.error("Failed to parse saved state from localStorage:", e);
+                }
+            }
+        }
 
+        // --- Event Handlers for UI buttons ---
+
+        function toggleClockMode() {
+            STATE.isDigital = !STATE.isDigital;
+            renderUI();
+            saveState();
+        }
+
+        function toggleTimeFormat() {
+            STATE.is24Hour = !STATE.is24Hour;
+            updateClock();
+            renderUI();
+            saveState();
+        }
+
+        /**
+         * Toggles between "ticking" (setInterval) and "gliding" (requestAnimationFrame) clock modes.
+         */
         function toggleGlideMode() {
             STATE.isGliding = !STATE.isGliding;
             if (STATE.isGliding) {
+                // Switch to animation frame loop
                 clearInterval(STATE.tickInterval);
                 STATE.tickInterval = null;
                 animate();
             } else {
+                // Switch back to interval-based ticking
                 cancelAnimationFrame(STATE.animationFrame);
                 STATE.animationFrame = null;
-                updateClock();
-                if (!STATE.tickInterval) STATE.tickInterval = setInterval(updateClock, 1000);
+                updateClock(); // Ensure final position is correct
+                if (!STATE.tickInterval) {
+                    STATE.tickInterval = setInterval(updateClock, 1000);
+                }
             }
             renderUI();
+            saveState();
         }
 
-        function toggleNumbers() { STATE.showNumbers = !STATE.showNumbers; renderUI(); }
+        function toggleNumbers() {
+            STATE.showNumbers = !STATE.showNumbers;
+            renderUI();
+            saveState();
+        }
 
-        function toggleUIVisibility() { STATE.uiHidden = !STATE.uiHidden; renderUI(); }
+        function toggleUIVisibility() {
+            STATE.uiHidden = !STATE.uiHidden;
+            renderUI();
+            saveState();
+        }
 
+        /**
+         * Toggles between using network time and local system time.
+         */
         async function toggleTimeSource() {
             const wantNetwork = !STATE.useNetworkTime;
             if (wantNetwork) {
-                // switching to network time: try to sync (with retries)
+                // When switching to network time, we must perform a sync.
                 DOM.timeSource.textContent = 'SYNCING...';
                 const ok = await fetchNetworkTime();
                 if (!ok) {
+                    // If sync fails, show a "FAILED" message briefly before UI reverts.
                     DOM.timeSource.textContent = 'FAILED';
                     setTimeout(() => renderUI(), 1500);
-                    return;
                 }
             } else {
-                // switching to system time: stop periodic sync and use system immediately
+                // When switching to system time, we just stop syncing and use local time.
                 STATE.useNetworkTime = false;
                 clearPeriodicSync();
                 updateClock();
+                saveState();
+                renderUI();
             }
-            renderUI();
         }
 
+
+        // --------------------------
+        // --- Initialization ---
+        // --------------------------
+
+        /**
+         * Attaches all the necessary event listeners to the UI controls.
+         */
         function attachEventListeners() {
             DOM.toggle.addEventListener('click', toggleClockMode);
             DOM.format.addEventListener('click', toggleTimeFormat);
@@ -399,6 +559,10 @@
             DOM.timeSource.addEventListener('click', toggleTimeSource);
         }
 
+        /**
+         * Generates the 60 minute/hour markers for the analog clock face.
+         * Using a DocumentFragment is more performant because it minimizes DOM reflows.
+         */
         function generateMarkers() {
             const fragment = document.createDocumentFragment();
             for (let i = 0; i < 60; i++) {
@@ -411,12 +575,17 @@
             DOM.markers.appendChild(fragment);
         }
 
+        /**
+         * Generates the 12 numbers for the analog clock face.
+         */
         function generateNumbers() {
-            const RADIUS = 150;
+            const RADIUS = 150; // The radius for positioning the numbers.
             const fragment = document.createDocumentFragment();
             for (let i = 1; i <= 12; i++) {
                 const num = document.createElement('div');
                 num.className = 'number';
+                // Calculate the x and y position of each number using trigonometry.
+                // We subtract 90 degrees (PI/2) to start '12' at the top.
                 const angle = (i * 30 - 90) * (Math.PI / 180);
                 const x = Math.cos(angle) * RADIUS;
                 const y = Math.sin(angle) * RADIUS;
@@ -427,30 +596,50 @@
             DOM.clockNumbers.appendChild(fragment);
         }
 
+        /**
+         * The main initialization function for the application.
+         */
         async function init() {
+            // 1. Load any saved state from the previous session.
+            loadState();
+
+            // 2. Generate the static parts of the analog clock face.
             generateMarkers();
             generateNumbers();
-            attachEventListeners();
-            renderUI();
-            updateClock();
-            if (!STATE.tickInterval) STATE.tickInterval = setInterval(updateClock, 1000);
 
-            // Attempt an automatic network sync on load, with retries.
+            // 3. Attach event listeners to all buttons.
+            attachEventListeners();
+
+            // 4. Render the UI in its initial state.
+            renderUI();
+            
+            // 5. Do an initial clock update to avoid seeing 00:00:00.
+            updateClock();
+
+            // 6. Start the appropriate clock update loop.
+            if (STATE.isGliding) {
+                animate();
+            } else {
+                if (!STATE.tickInterval) {
+                    STATE.tickInterval = setInterval(updateClock, 1000);
+                }
+            }
+
+            // 7. If using network time, attempt an initial sync.
+            // This happens after the first render so the user sees a clock immediately.
             if (STATE.useNetworkTime) {
-                DOM.timeSource.textContent = 'SYNCING...';
+                DOM.timeSource.textContent = 'SYNCING...'; // Show feedback that sync is in progress.
                 const ok = await fetchNetworkTime();
                 if (!ok) {
-                    // fallback to system time briefly show FAILED
+                    // If sync fails, revert to system time and show a brief failure message.
                     STATE.useNetworkTime = false;
                     DOM.timeSource.textContent = 'FAILED';
                     setTimeout(() => renderUI(), 1500);
-                } else {
-                    renderUI();
                 }
             }
         }
 
-        // Start
+        // --- App Start ---
         init();
     </script>
 </body>
